@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Strange App - Audio to Binary to Text</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.all.min.js"></script>
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
@@ -33,6 +32,10 @@
             display: inline-block;
             border-radius: 5px;
         }
+        #audioPreview {
+            margin-top: 20px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -41,9 +44,9 @@
     <button id="stop" disabled>⏹ Stop Recording</button>
     <button id="save" disabled>💾 Save Text</button>
     <button id="downloadAudio" disabled>🎵 Download Audio</button>
-    <button id="downloadMp3" disabled>🎶 Download MP3</button>
     <div id="output"></div>
     <div id="textPreview">Converted Text: </div>
+    <audio id="audioPreview" controls></audio>
 
     <script>
         let audioContext, analyser, microphone, dataArray, mediaRecorder;
@@ -70,7 +73,6 @@
             document.getElementById("stop").disabled = false;
             document.getElementById("save").disabled = false;
             document.getElementById("downloadAudio").disabled = false;
-            document.getElementById("downloadMp3").disabled = false;
             processAudio();
         });
 
@@ -80,6 +82,13 @@
             document.getElementById("stop").disabled = true;
             audioContext.close();
             mediaRecorder.stop();
+            
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById("audioPreview").src = audioUrl;
+                document.getElementById("audioPreview").style.display = "block";
+            };
         });
 
         document.getElementById("save").addEventListener("click", () => {
@@ -97,33 +106,6 @@
             link.href = audioUrl;
             link.download = "recorded_audio.wav";
             link.click();
-        });
-
-        document.getElementById("downloadMp3").addEventListener("click", async () => {
-            const wavBlob = new Blob(audioChunks, { type: "audio/wav" });
-            const reader = new FileReader();
-            reader.readAsArrayBuffer(wavBlob);
-            reader.onloadend = () => {
-                let wavBuffer = reader.result;
-                let wavView = new Int16Array(wavBuffer);
-                let mp3Encoder = new lamejs.Mp3Encoder(1, 44100, 128);
-                let mp3Data = [];
-                let chunkSize = 1152;
-                for (let i = 0; i < wavView.length; i += chunkSize) {
-                    let sampleChunk = wavView.subarray(i, i + chunkSize);
-                    let mp3Chunk = mp3Encoder.encodeBuffer(sampleChunk);
-                    if (mp3Chunk.length > 0) {
-                        mp3Data.push(mp3Chunk);
-                    }
-                }
-                mp3Data.push(mp3Encoder.flush());
-                let mp3Blob = new Blob(mp3Data, { type: "audio/mp3" });
-                let mp3Url = URL.createObjectURL(mp3Blob);
-                let link = document.createElement("a");
-                link.href = mp3Url;
-                link.download = "recorded_audio.mp3";
-                link.click();
-            };
         });
 
         function processAudio() {
